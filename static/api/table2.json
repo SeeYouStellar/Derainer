@@ -1,0 +1,34 @@
+{
+    "code": 0,
+    "msg": "",
+    "count": 1000,
+    "data": [
+      {
+        "id": 1,
+        "modelname": "yolov3",
+        "train": "已训练",
+        "map": "0.91",
+        "current": "0.87",
+        "modelsource": "本地上传",
+        "file":""
+      },
+      {
+        "id": 2,
+        "modelname": "yolov4",
+        "train": "未训练",
+        "map": "0",
+        "current": "0",
+        "modelsource": "模型训练导入",
+        "file":""
+      },
+      {
+        "id": 3,
+        "modelname": "SSD",
+        "train": "已训练",
+        "map": "0.67",
+        "current": "0.73",
+        "modelsource": "本地上传",
+        "file": ""
+      }
+    ]
+  }
