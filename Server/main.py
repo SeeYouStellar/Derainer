@@ -1,42 +1,37 @@
-# -*- coding: UTF-8 -*-
-import socket, os, struct
-import time
-from picamera import  PiCamera
+#!/usr/bin/env python
+# -*- coding=utf-8 -*-
 
-"""set ip address"""
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect(('192.168.123.174', 8000))
+import cv2
+import zmq
+import base64
+import picamera
+from picamera.array import PiRGBArray
 
-"""set camera"""
-camera = PiCamera()
-camera.resolution = (1920,1080)
-camera.framerate = 60
+IP = '192.168.31.84' # 视频接受端的IP地址  同个wifi下上位机的ip地址
 
-"""get opencv-classifier"""
-face_cascade = cv2.CascadeClassifier('/home/pi/opencv-3.3.0/data/lbpcascades/lbpcascade_frontalface.xml' )
+"""初始化摄像头部分"""
+camera = picamera.PiCamera()
+camera.resolution = (640,480)
+camera.framerate = 20
+rawCapture = PiRGBArray(camera, size = (640,480))
 
-while True:
-    camera.capture('/home/pi/class/0.jpg')
-    filepath = '/home/pi/class/0.jpg'
-    image = cv2.imread(filepath)
-    gray = cv2.cvtColor( image, cv2.COLOR_BGR2GRAY )
-    faces = face_cascade.detectMultiScale( gray )
-    if os.path.isfile(filepath) and len(faces):
-        fileinfo_size = struct.calcsize('128sl')  # 定义打包规则
-        # 定义文件头信息，包含文件名和文件大小
-        fhead = struct.pack('128sl', os.path.basename(filepath), os.stat(filepath).st_size)
-        s.send(fhead)
-        print('client filepath: ', os.path.basename(filepath), os.stat(filepath).st_size)
+"""实例化用来发送帧的zmq对象"""
+contest = zmq.Context()
+"""zmq对象使用TCP通讯协议"""
+footage_socket = contest.socket(zmq.PAIR)
+"""zmq对象和视频接收端建立TCP通讯协议"""
+footage_socket.connect('tcp://%s:5555'%IP)
+print(IP)
 
-        # with open(filepath,'rb') as fo: 这样发送文件有问题，发送完成后还会发一些东西过去
-        fo = open(filepath, 'rb')
-        while True:
-            filedata = fo.read(1024)
-            if not filedata:
-                break
-            s.send(filedata)
-        #time.sleep(0.5)
-        fo.close()
-        print('send over...')
-    #time.sleep(0.5)
-        # s.close()
+"""循环从摄像头采集图像
+    由于使用的是树莓派摄像头，因此需要把use_video_port设置为True
+    frame为采集到的图像"""
+for frame in camera.capture_continuous(rawCapture, format='bgr', use_video_port=True):
+    frame_image = frame.array #把采集到的图像进行转换为numpy array
+    encoded, buffer = cv2.imencode('.jpg', frame_image) #把转换后的图像数据再次转换成流数据，
+                                                        # 并且把流数据储存到内存buffer中
+    jpg_as_test = base64.b64encode(buffer) #把内存中的图像流数据进行base64编码
+    footage_socket.send(jpg_as_test) #把编码后的流数据发送给视频的接收端
+    rawCapture.truncate(0) #释放内存，准备进行下一帧的视频图像传输
+
+

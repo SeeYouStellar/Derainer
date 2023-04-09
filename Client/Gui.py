@@ -1,7 +1,7 @@
 
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow
-from ui2test import Ui_MainWindow
+from DerainerGui import Ui_MainWindow
 
 
 class MyMainWindow(QMainWindow, Ui_MainWindow):

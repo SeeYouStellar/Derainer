@@ -15,7 +15,7 @@
 │          Project_Default.xml
 ├─Client
 │      Gui.py
-│      main.py
+│      ShowVideo.py
 ├─Network
 │  │  GuidedFilter.py
 │  │  testing.py
@@ -39,7 +39,7 @@
 │              1.jpg
 │              2.jpg
 ├─Server
-│      main.py
+│      ShowVideo.py
 └─__pycache__
 
 ```
