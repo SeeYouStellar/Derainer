@@ -1,6 +1,6 @@
 ## My Graduate design:Derainer based on Raspberry Pi
 
-## file structure
+### file structure
 ```shell
 │  readme.md
 ├─.idea
@@ -14,8 +14,8 @@
 │          profiles_settings.xml
 │          Project_Default.xml
 ├─Client
-│      Gui.py
-│      ShowVideo.py
+│      main.py
+│      ListenVideo.py
 ├─Network
 │  │  GuidedFilter.py
 │  │  testing.py
@@ -39,7 +39,19 @@
 │              1.jpg
 │              2.jpg
 ├─Server
-│      ShowVideo.py
+│      ListenVideo.py
 └─__pycache__
 
 ```
+
+### Gui design
+
+1. 打开系统，系统就开始监听树莓派传输过来的摄像头镜头画面
+
+2. 点击显示镜头，命令树莓派开始传输镜头画面，镜头出现在系统界面中
+
+3. 点击开始拍照，将点击时的一帧截取并保存至本地，并命令树莓派关闭视频传输，将该帧定格到系统界面中
+
+4. 点击去雨处理，将该帧传输给树莓派，命令树莓派运行去雨代码，并将结果图像返回给系统
+
+5. 点击结果评估，调用评估代码评估本地的原图和结果图， 返回值显示到系统界面

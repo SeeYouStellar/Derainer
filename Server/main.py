@@ -7,7 +7,7 @@ import base64
 import picamera
 from picamera.array import PiRGBArray
 
-IP = '192.168.31.84' # 视频接受端的IP地址  同个wifi下上位机的ip地址
+IP = '172.20.10.5' # 视频接受端的IP地址  同个wifi下上位机的ip地址
 
 """初始化摄像头部分"""
 camera = picamera.PiCamera()
