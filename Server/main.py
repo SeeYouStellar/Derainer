@@ -6,16 +6,15 @@ import zmq
 import base64
 import threading
 
-mutex = threading.Lock()
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-
 mutex_flag = threading.Lock()
 flag = 0
-def SendFrame():
+
+def SendThread():
     # init camera
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     # fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     # vw = cv2.VideoWriter('output.mp4', fourcc, 20, (640, 480))
-
+    print("thread1 is start")
     # port 5555
     IP = '172.20.10.5'
     contest = zmq.Context()
@@ -31,12 +30,9 @@ def SendFrame():
             mutex_flag.release()
         else:
             mutex_flag.release()
-            mutex.acquire()
             cap.release()
             cv2.destroyAllWindows()
-            mutex.release()
             break
-        mutex.acquire()
         if cap.isOpened():
             ret, frame = cap.read()
             if not ret:
@@ -53,31 +49,35 @@ def SendFrame():
         else:
             # 在关闭摄像头后可能会还会需要重启摄像头（flag 2->1），那么就会进入这个分支，只需要重新获取摄像头
             cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-        mutex.release()
     cap.release()
     cv2.destroyAllWindows()
     print("cap is close")
 
-def StopSendFrame():
+def ListenThread():
+    print("thread2 is start")
     contest = zmq.Context()
     socket_listen = contest.socket(zmq.PAIR)
-    socket_listen.bind('tcp://%s:5556')
+    socket_listen.bind('tcp://*:5556')
 
     while True:
-        msg = socket_listen.recv()
+        try:
+            msg = socket_listen.recv()
+        except zmq.ZMQError:
+            continue
+        print(msg)
         mutex_flag.acquire()
         if msg == '1': #开启摄像头，开始传帧
             flag = 1
         elif msg == '0': #暂停传帧
             flag = 0
-        else:           #关闭摄像头
+        elif msg == '2':           #关闭摄像头
             flag = 2
         mutex_flag.release()
         time.sleep(1)
 
 if __name__ == "__main__":
-    t1 = threading.Thread(target=SendFrame)
-    t2 = threading.Thread(target=StopSendFrame)
+    t1 = threading.Thread(target=SendThread)
+    t2 = threading.Thread(target=ListenThread)
     t1.start()
     t2.start()
     t1.join()

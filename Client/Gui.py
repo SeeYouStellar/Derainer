@@ -1,4 +1,5 @@
 import sys
+import time
 
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QThread, pyqtSignal
@@ -9,10 +10,52 @@ import zmq
 import base64
 import numpy as np
 
+class ListenThread(QThread):
+    trigger = pyqtSignal(object)
+
+    def __int__(self):
+        super(ListenThread, self).__int__()
+
+    def run(self):
+        print("thread1 is start")
+        context = zmq.Context()
+        footage_socket = context.socket(zmq.PAIR)
+        footage_socket.bind('tcp://*:5555')
+        while True:
+            print("Listion")
+            try:
+                frame = footage_socket.recv_string(zmq.NOBLOCK)  # 接收TCP传输过来的一帧视频图像数据
+            except zmq.ZMQError:
+                continue
+
+            img = base64.b64decode(frame)  # 把数据进行base64解码后储存到内存img变量中
+            npimg = np.frombuffer(img, dtype=np.uint8)  # 把这段缓存解码成一维数组
+            source = cv2.imdecode(npimg, 1)  # 将一维数组解码为图像source
+            # cv2.imshow("Stream", source)  # 把图像显示在窗口中
+            self.trigger.emit(source)
+            cv2.waitKey(1)  # 延时等待，防止出现窗口无响应
+
+class SendThread(QThread):
+    def __int__(self):
+        super(SendThread, self).__int__()
+        self.flag = -1
+    def run(self):
+        IP = '172.20.10.7'
+        contest = zmq.Context()
+        socket_ = contest.socket(zmq.PAIR)
+        socket_.bind('tcp://%s:5556' % IP)
+        while True:
+            if self.flag == 1:
+                socket_.send('1')
+            elif self.flag == 2:
+                socket_.send('2')
+            elif self.flag == 0:
+                socket_.send('0')
+            time.sleep(1)
 
 class MyWindows(QWidget):
     def __init__(self):
-        super().__init__()
+        super(MyWindows, self).__init__()
         self.Win()
 
     def MakePhoto(self):
@@ -20,12 +63,8 @@ class MyWindows(QWidget):
 
     def BeginVideo(self):
         print('-----BeginVideo----')
-        self.work1.flag = 1
-        IP = '172.20.10.7'
-        contest = zmq.Context()
-        socket_ = contest.socket(zmq.PAIR)
-        socket_.bind('tcp://%s:5556' % IP)
-        socket_.send('1')
+        self.work1.start()
+        self.work2.flag = 1
 
     def ShowPerFrame(self, frame):
         Label2 = self.findChild(QLabel, 'Label2')
@@ -38,26 +77,18 @@ class MyWindows(QWidget):
 
     def StopVideo(self):
         print('-----StopVideo----')
-        self.work1.flag = 0
-        IP = '172.20.10.7'
-        contest = zmq.Context()
-        socket_ = contest.socket(zmq.PAIR)
-        socket_.bind('tcp://%s:5556' % IP)
-        socket_.send('0')
+        self.work1.exit()
+        self.work2.flag = 0
 
     def EndVideo(self):
         print('-----EndVideo----')
-        self.work1.flag = 0
-        IP = '172.20.10.7'
-        contest = zmq.Context()
-        socket_ = contest.socket(zmq.PAIR)
-        socket_.bind('tcp://%s:5556' % IP)
-        socket_.send('2')
+        self.work1.exit()
+        self.work2.flag = 2
 
 
     def Win(self):
-        self.work1 = WorkThread()
-        self.work1.start()
+        self.work1 = ListenThread()
+        self.work2 = SendThread()
         LayoutWin = QHBoxLayout(self)
 
         Widget123 = QWidget()
@@ -138,28 +169,7 @@ class MyWindows(QWidget):
         self.setLayout(LayoutWin)
         # self.statusBar.showMessage('就绪')
 
-class WorkThread(QThread):
-    trigger = pyqtSignal(object)
-    def __int__(self):
-        super(WorkThread, self).__int__()
-        flag = 0
-    def run(self):
-        context = zmq.Context()
-        footage_socket = context.socket(zmq.PAIR)
-        footage_socket.bind('tcp://*:5555')
-        while True:
-            if self.flag:
-                print("Listion")
-                frame = footage_socket.recv_string()  # 接收TCP传输过来的一帧视频图像数据
-                img = base64.b64decode(frame)  # 把数据进行base64解码后储存到内存img变量中
-                npimg = np.frombuffer(img, dtype=np.uint8)  # 把这段缓存解码成一维数组
-                source = cv2.imdecode(npimg, 1)  # 将一维数组解码为图像source
-                # cv2.imshow("Stream", source)  # 把图像显示在窗口中
-                self.trigger.emit(source)
-                cv2.waitKey(1)  # 延时等待，防止出现窗口无响应
-            else:
-                print("sleeping")
-                self.sleep(1)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
