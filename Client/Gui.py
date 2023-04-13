@@ -9,6 +9,10 @@ import cv2
 import zmq
 import base64
 import numpy as np
+import threading
+
+mutex_flag = threading.Lock()
+flag = 0
 
 class ListenThread(QThread):
     trigger = pyqtSignal(object)
@@ -19,14 +23,13 @@ class ListenThread(QThread):
     def run(self):
         print("thread1 is start\n")
         context = zmq.Context()
-        footage_socket = context.socket(zmq.PAIR)
-        footage_socket.bind('tcp://*:5555')
+        socket_listen = context.socket(zmq.PAIR)
+        socket_listen.bind('tcp://*:5555')
+        print("bind socket 5555 build\n")
         while True:
-            try:
-                frame = footage_socket.recv_string(zmq.NOBLOCK)  # 接收TCP传输过来的一帧视频图像数据
-            except zmq.ZMQError:
-                continue
-            print("listen a frame\n")
+            frame = socket_listen.recv()  # 接收TCP传输过来的一帧视频图像数据
+            socket_listen.send_string("receive frame")
+            # print("listen a frame\n")
             img = base64.b64decode(frame)  # 把数据进行base64解码后储存到内存img变量中
             npimg = np.frombuffer(img, dtype=np.uint8)  # 把这段缓存解码成一维数组
             source = cv2.imdecode(npimg, 1)  # 将一维数组解码为图像source
@@ -37,25 +40,31 @@ class ListenThread(QThread):
 class SendThread(QThread):
     def __int__(self):
         super(SendThread, self).__int__()
-        self.flag = -1
 
     def run(self):
         print("thread2 is start\n")
-        IP = '172.20.10.7'
+        IP = '172.20.10.5'
         contest = zmq.Context()
-        socket_ = contest.socket(zmq.PAIR)
-        socket_.bind('tcp://%s:5556' % IP)
+        socket_send = contest.socket(zmq.PAIR)
+        socket_send.connect('tcp://%s:5556' % IP)
+        print("send socket 5556 build\n")
         while True:
-            print("thread2 is running, self.flag=="+self.flag+"\n")
-            if self.flag == 1:
-                socket_.send('1')
-            elif self.flag == 2:
-                socket_.send('2')
-            elif self.flag == 0:
-                socket_.send('0')
-            elif self.flag == 3:
-                socket_.send('3')
-            time.sleep(3)
+
+            # if self.flag == 1:
+            #     socket_.send("1")
+            # elif self.flag == 2:
+            #     socket_.send("2")
+            # elif self.flag == 0:
+            #     socket_.send("0")
+            # elif self.flag == 3:
+            #     socket_.send("3")
+            # try:
+            mutex_flag.acquire()
+            print("thread2 is running, self.flag==" + str(flag) + "\n")
+            socket_send.send_string(str(flag))
+            mutex_flag.release()
+            msg = socket_send.recv_string()
+            time.sleep(1)
 
 class MyWindows(QWidget):
     def __init__(self):
@@ -64,13 +73,19 @@ class MyWindows(QWidget):
 
     def MakePhoto(self):
         print('-----MakePhoto-----')
-        self.work2.flag = 3
+        mutex_flag.acquire()
+        global flag
+        flag = 3
+        mutex_flag.release()
 
     def BeginVideo(self):
         print('-----BeginVideo----')
         self.work1.start()
         self.work2.start()
-        self.work2.flag = 1
+        mutex_flag.acquire()
+        global flag
+        flag = 1
+        mutex_flag.release()
 
     def ShowPerFrame(self, frame):
         Label2 = self.findChild(QLabel, 'Label2')
@@ -84,13 +99,18 @@ class MyWindows(QWidget):
     def StopVideo(self):
         print('-----StopVideo----')
         self.work1.exit()
-        self.work2.flag = 0
+        mutex_flag.acquire()
+        global flag
+        flag = 0
+        mutex_flag.release()
 
     def EndVideo(self):
         print('-----EndVideo----')
         self.work1.exit()
-        self.work2.flag = 2
-
+        mutex_flag.acquire()
+        global flag
+        flag = 2
+        mutex_flag.release()
 
     def Win(self):
         self.work1 = ListenThread()

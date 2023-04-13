@@ -22,8 +22,10 @@ def SendThread():
     socket_send = contest.socket(zmq.PAIR)
     socket_send.connect('tcp://%s:5555' % IP)
     makephoto = False
+    global flag
     while True:
         mutex_flag.acquire()
+        # print(str(flag))
         if flag == 0:
             mutex_flag.release()
             time.sleep(1)
@@ -48,6 +50,7 @@ def SendThread():
             encoded, buffer = cv2.imencode('.jpg', frame)  # 把转换后的图像数据再次转换成流数据，
             jpg_buffer = base64.b64encode(buffer)  # 把内存中的图像流数据进行base64编码
             socket_send.send(jpg_buffer)  # 把编码后的流数据发送给视频的接收端
+            msg = socket_send.recv_string()
             if makephoto:
                 timelog = strftime('%Y-%m-%d %H:%M:%S', localtime())
                 cv2.imwrite(timelog+'.jpg', frame)
@@ -65,21 +68,26 @@ def ListenThread():
     contest = zmq.Context()
     socket_listen = contest.socket(zmq.PAIR)
     socket_listen.bind('tcp://*:5556')
-
+    global flag
     while True:
-        try:
-            msg = socket_listen.recv_string()
-        except zmq.ZMQError:
-            continue
-        print(msg)
+        # try:
+        msg = socket_listen.recv_string()
+        socket_listen.send_string("receive flag")
+        # except zmq.ZMQError:
+        #     print("zmq.ZMQError")
+        #     time.sleep(1)
+        #     continue
+        # else:
+        # print(msg)
         mutex_flag.acquire()
-        if msg == '1': #开启摄像头，开始传帧
+
+        if msg == "1":  # 开启摄像头，开始传帧
             flag = 1
-        elif msg == '0': #暂停传帧
+        elif msg == "0":  # 暂停传帧
             flag = 0
-        elif msg == '2':           #关闭摄像头
+        elif msg == "2":  # 关闭摄像头
             flag = 2
-        elif msg == 3:
+        elif msg == "3":
             flag = 3
         mutex_flag.release()
         time.sleep(1)
