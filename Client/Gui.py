@@ -17,17 +17,16 @@ class ListenThread(QThread):
         super(ListenThread, self).__int__()
 
     def run(self):
-        print("thread1 is start")
+        print("thread1 is start\n")
         context = zmq.Context()
         footage_socket = context.socket(zmq.PAIR)
         footage_socket.bind('tcp://*:5555')
         while True:
-            print("Listion")
             try:
                 frame = footage_socket.recv_string(zmq.NOBLOCK)  # 接收TCP传输过来的一帧视频图像数据
             except zmq.ZMQError:
                 continue
-
+            print("listen a frame\n")
             img = base64.b64decode(frame)  # 把数据进行base64解码后储存到内存img变量中
             npimg = np.frombuffer(img, dtype=np.uint8)  # 把这段缓存解码成一维数组
             source = cv2.imdecode(npimg, 1)  # 将一维数组解码为图像source
@@ -39,19 +38,24 @@ class SendThread(QThread):
     def __int__(self):
         super(SendThread, self).__int__()
         self.flag = -1
+
     def run(self):
+        print("thread2 is start\n")
         IP = '172.20.10.7'
         contest = zmq.Context()
         socket_ = contest.socket(zmq.PAIR)
         socket_.bind('tcp://%s:5556' % IP)
         while True:
+            print("thread2 is running, self.flag=="+self.flag+"\n")
             if self.flag == 1:
                 socket_.send('1')
             elif self.flag == 2:
                 socket_.send('2')
             elif self.flag == 0:
                 socket_.send('0')
-            time.sleep(1)
+            elif self.flag == 3:
+                socket_.send('3')
+            time.sleep(3)
 
 class MyWindows(QWidget):
     def __init__(self):
@@ -60,10 +64,12 @@ class MyWindows(QWidget):
 
     def MakePhoto(self):
         print('-----MakePhoto-----')
+        self.work2.flag = 3
 
     def BeginVideo(self):
         print('-----BeginVideo----')
         self.work1.start()
+        self.work2.start()
         self.work2.flag = 1
 
     def ShowPerFrame(self, frame):

@@ -5,6 +5,7 @@ import numpy as np
 import zmq
 import base64
 import threading
+from time import strftime, localtime
 
 mutex_flag = threading.Lock()
 flag = 0
@@ -20,6 +21,7 @@ def SendThread():
     contest = zmq.Context()
     socket_send = contest.socket(zmq.PAIR)
     socket_send.connect('tcp://%s:5555' % IP)
+    makephoto = False
     while True:
         mutex_flag.acquire()
         if flag == 0:
@@ -28,11 +30,14 @@ def SendThread():
             continue
         elif flag == 1:
             mutex_flag.release()
-        else:
+        elif flag == 2:
             mutex_flag.release()
             cap.release()
             cv2.destroyAllWindows()
             break
+        elif flag == 3:
+            mutex_flag.release()
+            makephoto = True
         if cap.isOpened():
             ret, frame = cap.read()
             if not ret:
@@ -41,9 +46,11 @@ def SendThread():
             # vw.write(frame)
             # cv2.imshow('frame', frame)
             encoded, buffer = cv2.imencode('.jpg', frame)  # 把转换后的图像数据再次转换成流数据，
-            # 并且把流数据储存到内存buffer中
             jpg_buffer = base64.b64encode(buffer)  # 把内存中的图像流数据进行base64编码
             socket_send.send(jpg_buffer)  # 把编码后的流数据发送给视频的接收端
+            if makephoto:
+                timelog = strftime('%Y-%m-%d %H:%M:%S', localtime())
+                cv2.imwrite(timelog+'.jpg', frame)
             if cv2.waitKey(1) == ord('q'):
                 break
         else:
@@ -61,7 +68,7 @@ def ListenThread():
 
     while True:
         try:
-            msg = socket_listen.recv()
+            msg = socket_listen.recv_string()
         except zmq.ZMQError:
             continue
         print(msg)
@@ -72,6 +79,8 @@ def ListenThread():
             flag = 0
         elif msg == '2':           #关闭摄像头
             flag = 2
+        elif msg == 3:
+            flag = 3
         mutex_flag.release()
         time.sleep(1)
 
