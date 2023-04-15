@@ -1,3 +1,8 @@
+# port 5555:send-receive cap frame
+# port 5556:send-receive flag
+# port 5557:send-receive UnDerain Img
+# port 5558:send-receive Derain Img
+
 import os
 import time
 
@@ -18,7 +23,7 @@ def SendThread():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     # fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     # vw = cv2.VideoWriter('output.mp4', fourcc, 20, (640, 480))
-    print("thread1 is start")
+    print("SendThread is start")
     # port 5555
     # IP = '172.20.10.5'
     IP = '172.23.80.1'
@@ -64,16 +69,16 @@ def SendThread():
                 makephoto = False
             if cv2.waitKey(1) == ord('q'):
                 break
-        # else:
-        #     # 在关闭摄像头后可能会还会需要重启摄像头（flag 2->1），那么就会进入这个分支，只需要重新获取摄像头
-        #     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        else:
+            # 在关闭摄像头后可能会还会需要重启摄像头（flag 2->1），那么就会进入这个分支，只需要重新获取摄像头
+            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     # cap.release()
     # cv2.destroyAllWindows()
     print("cap close")
-    print("thread1 dead")
+    print("SendThread dead")
 
 def ListenThread():
-    print("thread2 is start")
+    print("ListenThread is start")
     contest = zmq.Context()
     socket_listen = contest.socket(zmq.PAIR)
     socket_listen.bind('tcp://*:5556')
@@ -101,17 +106,16 @@ def ListenThread():
             flag == 4
         elif msg == "5":
             # os.system("rm -rf UnDerainImg/*.jpg")
-            print("-----------------")
             os.system("del /q \"UnDerainImg\"")
             os.system("del /q \"DerainImg\"")
         mutex_flag.release()
         time.sleep(1)
-    print("thread2 dead")
+    print("ListenThread dead")
 
 def SendUnDerainThread():
     # 异步传输
     # IP = '172.20.10.5'
-    print("thread3 is start")
+    print("SendUnDerainThread is start")
     IP = '172.23.80.1'
     contest = zmq.Context()
     socket_send = contest.socket(zmq.PAIR)
@@ -127,14 +131,14 @@ def SendUnDerainThread():
             print("send a UnDerainImg\n")
         else:
             time.sleep(1)
-    print("thread3 is dead")
+    print("SendUnDerainThread is dead")
 
 def DerainThread():
-    print("begin derain")
+    print("DerainThread is start\n")
 # def SendDerainThread():
 #     # 异步传输
-#     # IP = '172.20.10.5'
-#     IP = '172.23.80.1'
+#     IP = '172.20.10.5'
+    IP = '172.23.80.1'
 #     contest = zmq.Context()
 #     socket_send = contest.socket(zmq.PAIR)
 #     socket_send.connect('tcp://%s:5558' % IP)
@@ -146,7 +150,12 @@ def DerainThread():
 #             jpg_buffer = base64.b64encode(buffer)  # 把内存中的图像流数据进行base64编码
 #             socket_send.send(jpg_buffer)  # 把编码后的流数据发送给视频的接收端
 #             msg = socket_send.recv_string()
+
 if __name__ == "__main__":
+    print("---------clean local photo---------")
+    os.system("del /q \"UnDerainImg\"")
+    os.system("del /q \"DerainImg\"")
+
     t1 = threading.Thread(target=SendThread)
     t2 = threading.Thread(target=ListenThread)
     t3 = threading.Thread(target=SendUnDerainThread)

@@ -1,3 +1,8 @@
+# port 5555:send-receive cap frame
+# port 5556:send-receive flag
+# port 5557:send-receive UnDerain Img
+# port 5558:send-receive Derain Img
+
 import os.path
 import sys
 import time
@@ -5,13 +10,14 @@ import time
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QHBoxLayout, QSizePolicy, QVBoxLayout, QLabel, \
-    QTextEdit, QComboBox, QStatusBar, QMainWindow, QDesktopWidget
+    QTextEdit, QComboBox, QStatusBar, QMainWindow, QDesktopWidget, QLineEdit
 import cv2
 import zmq
 import base64
 import numpy as np
 import threading
 from time import strftime, localtime
+from queue import Queue
 
 mutex_flag = threading.Lock()
 flag = 0
@@ -19,8 +25,8 @@ flag = 0
 mutex_num = threading.Lock()
 num = 0
 
-mutex_beginderain = threading.Lock()
-beginderain = False
+mutex_timelogs = threading.Lock()
+timelogs = Queue()
 
 class ListenThread(QThread):
     trigger = pyqtSignal(object)
@@ -35,15 +41,15 @@ class ListenThread(QThread):
         socket_listen.bind('tcp://*:5555')
         print("bind socket 5555 build\n")
         while True:
-            frame = socket_listen.recv()  # 接收TCP传输过来的一帧视频图像数据
+            frame = socket_listen.recv()
             socket_listen.send_string("receive frame")
             # print("listen a frame\n")
-            img = base64.b64decode(frame)  # 把数据进行base64解码后储存到内存img变量中
-            npimg = np.frombuffer(img, dtype=np.uint8)  # 把这段缓存解码成一维数组
-            source = cv2.imdecode(npimg, 1)  # 将一维数组解码为图像source
-            # cv2.imshow("Stream", source)  # 把图像显示在窗口中
+            img = base64.b64decode(frame)
+            npimg = np.frombuffer(img, dtype=np.uint8)
+            source = cv2.imdecode(npimg, 1)
+            # cv2.imshow("Stream", source)
             self.trigger.emit(source)
-            cv2.waitKey(1)  # 延时等待，防止出现窗口无响应
+            cv2.waitKey(1)
 
 class SendThread(QThread):
     def __int__(self):
@@ -57,9 +63,9 @@ class SendThread(QThread):
         socket_send = contest.socket(zmq.PAIR)
         socket_send.connect('tcp://%s:5556' % IP)
         print("send socket 5556 build\n")
+        old_flag = -1
         global flag
         while True:
-
             # if self.flag == 1:
             #     socket_.send("1")
             # elif self.flag == 2:
@@ -69,14 +75,22 @@ class SendThread(QThread):
             # elif self.flag == 3:
             #     socket_.send("3")
             # try:
+            mutex_beginderain.acquire()
+            print(beginderain)
+            mutex_beginderain.release()
             mutex_flag.acquire()
             print("thread2 is running, self.flag==" + str(flag) + "\n")
             socket_send.send_string(str(flag))
             if flag == 3 or flag == 5 or flag == 4:  # 这几个操作和摄像头显示是并行的
-                flag = 1
+                if old_flag == 1:
+                    flag = 1
+                else:
+                    flag = 0
+            old_flag = flag
             mutex_flag.release()
             msg = socket_send.recv_string()
-            time.sleep(1)
+
+
 class CleanThread(QThread):
     signal = pyqtSignal(object)
 
@@ -102,7 +116,7 @@ class CleanThread(QThread):
         self.signal.emit(0)
 
 class ListenUnDerainThread(QThread):
-    trigger = pyqtSignal(object)
+    # trigger = pyqtSignal(object)
 
     def __int__(self):
         super(ListenUnDerainThread, self).__int__()
@@ -116,26 +130,75 @@ class ListenUnDerainThread(QThread):
         while True:
             frame = socket_listen.recv()  # 接收TCP传输过来的一帧视频图像数据
             socket_listen.send_string("receive frame")
-            # print("listen a frame\n")
             img = base64.b64decode(frame)  # 把数据进行base64解码后储存到内存img变量中
             npimg = np.frombuffer(img, dtype=np.uint8)  # 把这段缓存解码成一维数组
             source = cv2.imdecode(npimg, 1)  # 将一维数组解码为图像source
-            # cv2.imshow("Stream", source)  # 把图像显示在窗口中
             timelog = strftime('%Y-%m-%d %H-%M-%S', localtime())
             cv2.imwrite("UnDerainImg/"+timelog+".jpg", source)
+            print("save a underain photo\n")
 
-            mutex_beginderain.acquire()
-            global beginderain
-            if beginderain is True:
+            mutex_timelogs.acquire()
+            global timelogs
+            timelogs.put(timelog)
+            mutex_timelogs.release()
+
+            time.sleep(1)
+
+class ListenDerainThread(QThread):
+
+    def __int__(self):
+        super(ListenDerainThread, self).__int__()
+
+    def run(self):
+        print("thread5 is start\n")
+        context = zmq.Context()
+        socket_listen = context.socket(zmq.PAIR)
+        socket_listen.bind('tcp://*:5558')
+        print("bind socket 5558 build\n")
+        while True:
+            frame = socket_listen.recv()
+            socket_listen.send_string("receive frame")
+            img = base64.b64decode(frame)
+            npimg = np.frombuffer(img, dtype=np.uint8)
+            source = cv2.imdecode(npimg, 1)
+            # timelog = strftime('%Y-%m-%d %H-%M-%S', localtime())
+            mutex_timelogs.acquire()
+            timelog = timelogs.get()
+            mutex_timelogs.release()
+            cv2.imwrite("DerainedImg/"+timelog+".jpg", source)
+            print("save a derain photo\n")
+            time.sleep(1)
+
+class JudgeThread(QThread):
+    beginderain = pyqtSignal(object)
+    endderain1 = pyqtSignal(object)
+    endderain2 = pyqtSignal(object)
+
+    def __int__(self):
+        super(JudgeThread, self).__int__()
+
+    def run(self):
+        num_derain = -1
+        while True:
+            mutex_flag.acquire()
+            global flag
+            if flag == 4:
+                print("JudgeThread|flag:" + str(flag) + "\n")
                 mutex_num.acquire()
                 global num
                 if num == len(os.listdir("UnDerainImg")):
-                    self.trigger.emit("本轮次未去雨图像已全部传输完毕")
+                    self.beginderain.emit("待去雨帧收集完毕，开始去雨")
+                    print("JudgeThread|num:" + str(num) + "\n")
+                    num_derain = num
                     num = 0
-                    beginderain = False
                 mutex_num.release()
-            mutex_beginderain.release()
-            time.sleep(1)
+            flag.release()
+            print("JudgeThread|num_derain:" + str(num_derain) + "\n")
+            if num_derain == len(os.listdir("DerainedImg")):
+                self.endderain1.emit("去雨帧收集完毕，去雨完成")
+                self.endderain2.emit(0)
+                num_derain = -1
+            time.sleep(5)
 
 class MyWindows(QWidget):
 
@@ -146,10 +209,12 @@ class MyWindows(QWidget):
 
     def MakePhoto(self):
         print('-----MakePhoto-----')
+
         mutex_flag.acquire()
         global flag
         flag = 3
         mutex_flag.release()
+        self.work2.start()
 
         mutex_num.acquire()
         global num
@@ -157,16 +222,17 @@ class MyWindows(QWidget):
         mutex_num.release()
 
         # 获取显示帧数的label 并修改
-        Text1 = self.findChild(QTextEdit, "Text1")
-        text = int(Text1.toPlainText())
-        print("%d"%text)
-        Text1.setPlainText(str(text+1))
+        Text1 = self.findChild(QLineEdit, "Text1")
+        Text1Value = int(Text1.text())
+        # print("%d"%Text1Value)
+        Text1.setText(str(Text1Value+1))
 
     def BeginVideo(self):
         print('-----BeginVideo----')
         self.work1.start()
         self.work2.start()
         self.work4.start()
+
         mutex_flag.acquire()
         global flag
         flag = 1
@@ -203,14 +269,13 @@ class MyWindows(QWidget):
 
     def DeRain(self):
         print('-----DeRain-----')
+
+        self.work5.start()  # 开始接受 derain img
+
         mutex_flag.acquire()
         global flag
         flag = 4
         mutex_flag.release()
-        mutex_beginderain.acquire()
-        global beginderain
-        beginderain = True
-        mutex_beginderain.release()
 
     def Clean(self):
         print('-----Clean-----')
@@ -224,12 +289,12 @@ class MyWindows(QWidget):
         StatusBar = self.findChild(QStatusBar, 'StatusBar')
         StatusBar.showMessage(msg)
 
-    def SetFrameNum(self, num):
-        Text1 = self.findChild(QTextEdit, "Text1")
-        text = int(Text1.toPlainText())
-        Text1.setPlainText(str(num))
+    def SetFrameNum(self, num_):
+        Text1 = self.findChild(QLineEdit, "Text1")
+        Text1Value = int(Text1.text())
+        Text1.setText(str(num_))
 
-    def center(self):
+    def Center(self):
         # 获得屏幕坐标系
         screen = QDesktopWidget().screenGeometry()
         # 获得窗口坐标系
@@ -240,12 +305,27 @@ class MyWindows(QWidget):
         # 移动窗口使其居中
         self.move(L, T)
 
+    def AddComboBoxItem(self):
+        ComboBox1 = self.findChild(QComboBox, "ComboBox1")
+        UnDerainImgs = os.listdir("UnDerainImg")
+        DerainedImgs = os.listdir("DerainedImg")
+        if len(UnDerainImgs) != len(DerainedImgs):
+            print("len(UnDerainImgs) != len(DerainedImgs)\n")
+        else:
+            for i, val in enumerate(UnDerainImgs):
+                timelog = val[:-4]
+                ComboBox1.addItem(timelog)
+
     def Win(self):
-        self.center()
+        self.Center()
+
         self.work1 = ListenThread()
         self.work2 = SendThread()
         self.work3 = CleanThread()
         self.work4 = ListenUnDerainThread()
+        self.work5 = ListenDerainThread()
+        self.work6 = JudgeThread()
+
         LayoutWin = QHBoxLayout(self)
         WidgetWin = QWidget()
 
@@ -272,17 +352,16 @@ class MyWindows(QWidget):
         Widget2 = QWidget()
         Layout2 = QHBoxLayout(self)
         Label1 = QLabel('需处理的帧数：')
-        Text1 = QTextEdit()
+        Text1 = QLineEdit()
+
         Text1.setObjectName("Text1")
         Text1.append("0")
         Button3 = QPushButton('去雨', self)
         Button4 = QPushButton('清空', self)
-        Button5 = QPushButton('查看', self)
         Layout2.addWidget(Label1)
         Layout2.addWidget(Text1)
         Layout2.addWidget(Button3)
         Layout2.addWidget(Button4)
-        Layout2.addWidget(Button5)
         Widget2.setLayout(Layout2)
 
         self.work3.signal.connect(self.SetFrameNum)
@@ -311,9 +390,9 @@ class MyWindows(QWidget):
 
         Widget4 = QWidget()
         Layout4 = QHBoxLayout(self)
-        Combox1 = QComboBox(self)
-        Combox1.setObjectName("ComboBox")
-        Layout4.addWidget(Combox1)
+        ComboBox1 = QComboBox(self)
+        ComboBox1.setObjectName("ComboBox1")
+        Layout4.addWidget(ComboBox1)
         Widget4.setLayout(Layout4)
 
         Widget5 = QWidget()
@@ -348,7 +427,11 @@ class MyWindows(QWidget):
         self.work3.started.connect(lambda : self.StatusBarChange(self.StatusMsgs[0]))
         self.work3.finished.connect(lambda : self.StatusBarChange(self.StatusMsgs[1]))
 
-        self.work4.trigger.connect(self.StatusBarChange)
+        self.work6.beginderain.connect(self.StatusBarChange)
+
+        self.work6.endderain1.connect(self.StatusBarChange)
+        self.work6.endderain2.connect(self.SetFrameNum)
+
 
 
 if __name__ == '__main__':
