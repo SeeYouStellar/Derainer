@@ -75,9 +75,6 @@ class SendThread(QThread):
             # elif self.flag == 3:
             #     socket_.send("3")
             # try:
-            mutex_beginderain.acquire()
-            print(beginderain)
-            mutex_beginderain.release()
             mutex_flag.acquire()
             print("thread2 is running, self.flag==" + str(flag) + "\n")
             socket_send.send_string(str(flag))
@@ -192,7 +189,7 @@ class JudgeThread(QThread):
                     num_derain = num
                     num = 0
                 mutex_num.release()
-            flag.release()
+            mutex_flag.release()
             print("JudgeThread|num_derain:" + str(num_derain) + "\n")
             if num_derain == len(os.listdir("DerainedImg")):
                 self.endderain1.emit("去雨帧收集完毕，去雨完成")
@@ -271,7 +268,7 @@ class MyWindows(QWidget):
         print('-----DeRain-----')
 
         self.work5.start()  # 开始接受 derain img
-
+        self.work6.start()
         mutex_flag.acquire()
         global flag
         flag = 4
@@ -305,19 +302,33 @@ class MyWindows(QWidget):
         # 移动窗口使其居中
         self.move(L, T)
 
-    def AddComboBoxItem(self):
+    def AddComboBoxItem(self, msg):
         ComboBox1 = self.findChild(QComboBox, "ComboBox1")
         UnDerainImgs = os.listdir("UnDerainImg")
         DerainedImgs = os.listdir("DerainedImg")
         if len(UnDerainImgs) != len(DerainedImgs):
-            print("len(UnDerainImgs) != len(DerainedImgs)\n")
-        else:
-            for i, val in enumerate(UnDerainImgs):
+            print("warning|len(UnDerainImgs) != len(DerainedImgs)\n")
+        for i, val in enumerate(UnDerainImgs):
+            for j, val_ in enumerate(DerainedImgs):
+                if val == val_:
+                    break
+            if j < len(DerainedImgs):
                 timelog = val[:-4]
-                ComboBox1.addItem(timelog)
+                ComboBox1.addItem(timelog+".jpg")
+
+    def ShowFrame(self):
+        Label3 = self.findChild(QLabel, "Label3")
+        Label4 = self.findChild(QLabel, "Label4")
+        UnDerainImgs = os.listdir("UnDerainImg")
+        DerainedImgs = os.listdir("DerainedImg")
+        ComboBox1 = self.findChild(QComboBox, "ComboBox1")
+        Index = ComboBox1.currentIndex()
+        text = ComboBox1.itemText(Index)
+        Label3.setPixmap(QPixmap("UnDerainImg/"+text))
+        Label4.setPixmap(QPixmap("DerainedImg/"+text))
 
     def Win(self):
-        self.Center()
+        # self.Center()
 
         self.work1 = ListenThread()
         self.work2 = SendThread()
@@ -355,7 +366,7 @@ class MyWindows(QWidget):
         Text1 = QLineEdit()
 
         Text1.setObjectName("Text1")
-        Text1.append("0")
+        Text1.setText("0")
         Button3 = QPushButton('去雨', self)
         Button4 = QPushButton('清空', self)
         Layout2.addWidget(Label1)
@@ -373,7 +384,7 @@ class MyWindows(QWidget):
         Layout3 = QHBoxLayout(self)
         Label2 = QLabel()
         Label2.setObjectName('Label2')
-        Label2.setPixmap(QPixmap("../Network/TestData/input/1.jpg"))
+        Label2.setPixmap(QPixmap("../Server/Network/TestData/input/1.jpg"))
         Layout3.addWidget(Label2)
         Widget3.setLayout(Layout3)
 
@@ -392,15 +403,20 @@ class MyWindows(QWidget):
         Layout4 = QHBoxLayout(self)
         ComboBox1 = QComboBox(self)
         ComboBox1.setObjectName("ComboBox1")
+        ComboBox1.activated.connect(self.ShowFrame)
+
         Layout4.addWidget(ComboBox1)
         Widget4.setLayout(Layout4)
+
 
         Widget5 = QWidget()
         Layout5 = QHBoxLayout(self)
         Label3 = QLabel()
-        Label3.setPixmap(QPixmap("../Network/TestData/input/1.jpg"))
+        Label3.setPixmap(QPixmap("../Server/Network/TestData/input/1.jpg"))
+        Label3.setObjectName("Label3")
         Label4 = QLabel()
-        Label4.setPixmap(QPixmap("../Network/TestData/input/1.jpg"))
+        Label4.setPixmap(QPixmap("../Server/Network/TestData/input/1.jpg"))
+        Label4.setObjectName("Label4")
         Layout5.addWidget(Label3)
         Layout5.addWidget(Label4)
         Widget5.setLayout(Layout5)
@@ -431,7 +447,7 @@ class MyWindows(QWidget):
 
         self.work6.endderain1.connect(self.StatusBarChange)
         self.work6.endderain2.connect(self.SetFrameNum)
-
+        self.work6.endderain1.connect(self.AddComboBoxItem)
 
 
 if __name__ == '__main__':
@@ -439,3 +455,4 @@ if __name__ == '__main__':
     w = MyWindows()
     w.show()
     sys.exit(app.exec_())
+

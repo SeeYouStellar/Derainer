@@ -17,7 +17,7 @@ from queue import Queue
 mutex_flag = threading.Lock()
 flag = 0
 filename = Queue()  # 线程安全，不用加锁
-
+filename_deran = Queue()
 def SendThread():
     # init camera
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -30,6 +30,7 @@ def SendThread():
     contest = zmq.Context()
     socket_send = contest.socket(zmq.PAIR)
     socket_send.connect('tcp://%s:5555' % IP)
+    print("connect socket 5555 build\n")
     makephoto = False
     global flag
     while True:
@@ -82,6 +83,7 @@ def ListenThread():
     contest = zmq.Context()
     socket_listen = contest.socket(zmq.PAIR)
     socket_listen.bind('tcp://*:5556')
+    print("bind socket 5556 build\n")
     global flag
     while True:
         # try:
@@ -104,10 +106,12 @@ def ListenThread():
             flag = 3
         elif msg == "4":   # 去雨
             flag == 4
+            DerainT = threading.Thread(target=DerainThread)
+            DerainT.start()
         elif msg == "5":
             # os.system("rm -rf UnDerainImg/*.jpg")
             os.system("del /q \"UnDerainImg\"")
-            os.system("del /q \"DerainImg\"")
+            os.system("del /q \"DerainedImg\"")
         mutex_flag.release()
         time.sleep(1)
     print("ListenThread dead")
@@ -120,13 +124,21 @@ def SendUnDerainThread():
     contest = zmq.Context()
     socket_send = contest.socket(zmq.PAIR)
     socket_send.connect('tcp://%s:5557' % IP)
+    print("connect socket 5557 build\n")
     while True:
+        # print("1111111\n")
         if not filename.empty():
             name = filename.get()
+            filename_deran.put(name)
+            # print(name)
             frame = cv2.imread("UnDerainImg/"+name+".jpg")
+            # print(name)
             encoded, buffer = cv2.imencode('.jpg', frame)  # 把转换后的图像数据再次转换成流数据，
+            # print(name)
             jpg_buffer = base64.b64encode(buffer)  # 把内存中的图像流数据进行base64编码
+            # print(name)
             socket_send.send(jpg_buffer)  # 把编码后的流数据发送给视频的接收端
+            # print(name)
             msg = socket_send.recv_string()
             print("send a UnDerainImg\n")
         else:
@@ -135,36 +147,56 @@ def SendUnDerainThread():
 
 def DerainThread():
     print("DerainThread is start\n")
-# def SendDerainThread():
-#     # 异步传输
-#     IP = '172.20.10.5'
+    os.system("python Network/testing.py")
+    print("DerainThread is dead\n")
+    # os.system("Xcopy \"UnDerainImg\" \"DerainedImg\"")
+
+def SendDerainThread():
+    # 异步传输
+    # IP = '172.20.10.5'
+    print("SendDerainThread is start\n")
     IP = '172.23.80.1'
-#     contest = zmq.Context()
-#     socket_send = contest.socket(zmq.PAIR)
-#     socket_send.connect('tcp://%s:5558' % IP)
-#     while True:
-#         if not filename.empty():
-#             name = filename.get()
-#             frame = cv2.imread("UnDerainImg/"+name)
-#             encoded, buffer = cv2.imencode('.jpg', frame)  # 把转换后的图像数据再次转换成流数据，
-#             jpg_buffer = base64.b64encode(buffer)  # 把内存中的图像流数据进行base64编码
-#             socket_send.send(jpg_buffer)  # 把编码后的流数据发送给视频的接收端
-#             msg = socket_send.recv_string()
+    contest = zmq.Context()
+    socket_send = contest.socket(zmq.PAIR)
+    socket_send.connect('tcp://%s:5558' % IP)
+    print("connect socket 5558 build\n")
+    while True:
+        print("filename_deran.empty():"+str(filename_deran.empty())+"\n")
+        if not filename_deran.empty() and len(os.listdir("DerainedImg")) > 0:
+            name = filename_deran.get()
+            print("SendDerainThread|"+name+"\n")
+            print(name)
+            frame = cv2.imread("DerainedImg/"+name+".jpg")
+            print(name)
+            # cv2.imshow(name, frame)
+            encoded, buffer = cv2.imencode('.jpg', frame)  # 把转换后的图像数据再次转换成流数据，
+            print(name)
+            jpg_buffer = base64.b64encode(buffer)  # 把内存中的图像流数据进行base64编码
+            print(name)
+            socket_send.send(jpg_buffer)  # 把编码后的流数据发送给视频的接收端
+            print(name)
+            msg = socket_send.recv_string()
+            print("send a DerainedImg\n")
+        else:
+            time.sleep(1)
+    print("SendDerainThread is dead\n")
 
 if __name__ == "__main__":
     print("---------clean local photo---------")
     os.system("del /q \"UnDerainImg\"")
-    os.system("del /q \"DerainImg\"")
+    os.system("del /q \"DerainedImg\"")
 
     t1 = threading.Thread(target=SendThread)
     t2 = threading.Thread(target=ListenThread)
     t3 = threading.Thread(target=SendUnDerainThread)
-    t5 = threading.Thread(target=DerainThread)
+    t4 = threading.Thread(target=SendDerainThread)
+
     t1.start()
     t2.start()
     t3.start()
-    t5.start()
+    t4.start()
+
     t1.join()
     t2.join()
     t3.join()
-    t5.join()
+    t4.join()
