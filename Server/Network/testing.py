@@ -22,13 +22,13 @@ os.environ['CUDA_VISIBLE_DEVICES'] = "0"  # select GPU device
 
 tf.reset_default_graph()
 
-model_path = 'C:/Users/lisherry/Desktop/Server/Network/model'
-pre_trained_model_path = 'C:/Users/lisherry/Desktop/Server/Network/model/trained/model'
+model_path = './model/'
+pre_trained_model_path = './model/trained/model'
 
 
-img_path = 'C:/Users/lisherry/Desktop/Server/Network/TestData/input/' # the path of testing images
+img_path = './TestData/input/' # the path of testing images
 # img_path = "../UnDerainImg"
-results_path = 'C:/Users/lisherry/Desktop/Server/DerainedImg/' # the path of de-rained images
+results_path = './TestData/results/' # the path of de-rained images
 # results_path = "../DerainedImg"
 
 def _parse_function(filename):

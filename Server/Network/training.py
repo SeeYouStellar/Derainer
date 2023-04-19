@@ -26,16 +26,17 @@ num_channels = 3  # number of input's channels
 patch_size = 64  # patch size
 KernelSize = 3  # kernel size
 learning_rate = 0.1  # learning rate
-iterations = int(2.1 * 1e5)  # iterations
+iterations = int(1.0 * 1e4)  # iterations
 batch_size = 20  # batch size
 save_model_path = "./model/"  # saved model's path
 model_name = 'model-epoch'  # saved model's name
 ############################################################################
 
 
-input_path = "C:/Users/lisherry/Desktop/Server/Network/TrainData/input/"  # the path of rainy images
-gt_path = "C:/Users/lisherry/Desktop/Server/Network/TrainData/label/"  # the path of ground truth
-
+# input_path = "C:/Users/lisherry/Desktop/Server/Network/TrainData/input/"  # the path of rainy images
+# gt_path = "C:/Users/lisherry/Desktop/Server/Network/TrainData/label/"  # the path of ground truth
+input_path = './TrainData/input/'
+gt_path = './TrainData/label/'
 input_files = os.listdir(input_path)
 gt_files = os.listdir(gt_path)
 
@@ -170,7 +171,7 @@ if __name__ == '__main__':
             plt.show()
 
             start = time.time()
-
+            print(start)
             for j in range(start_point, iterations):  # iterations
                 if j + 1 > int(1e5):
                     lr_ = learning_rate * 0.1
