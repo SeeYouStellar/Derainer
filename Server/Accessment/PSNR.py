@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy
 import math
+import cv2
 
 def psnr(img1, img2):
     mse = numpy.mean( (img1 - img2) ** 2 )
@@ -25,3 +26,7 @@ def psnr(img1, img2):
         return 100
     PIXEL_MAX = 255.0
     return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
+
+img1 = cv2.imread('../DerainedImg/2023-04-19 22-03-20.jpg')
+img2 = cv2.imread('../UnDerainImg/2023-04-19 22-03-20.jpg')
+print(psnr(img1, img2))

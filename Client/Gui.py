@@ -18,6 +18,7 @@ import numpy as np
 import threading
 from time import strftime, localtime
 from queue import Queue
+from skimage.measure import compare_ssim, compare_psnr, compare_mse
 
 mutex_flag = threading.Lock()
 flag = 0
@@ -326,6 +327,14 @@ class MyWindows(QWidget):
         text = ComboBox1.itemText(Index)
         Label3.setPixmap(QPixmap("UnDerainImg/"+text))
         Label4.setPixmap(QPixmap("DerainedImg/"+text))
+        img1 = cv2.imread("UnDerainImg/"+text)
+        img2 = cv2.imread("DerainedImg/"+text)
+        psnr = compare_psnr(img1, img2)
+        PSNRText = self.findChild(QLineEdit, "PSNRText")
+        PSNRText.setText(str(psnr))
+        ssim = compare_ssim(img1, img2, multichannel=True)
+        SSIMText = self.findChild(QLineEdit, "SSIMText")
+        SSIMText.setText(str(ssim))
 
     def Win(self):
         # self.Center()
@@ -384,7 +393,9 @@ class MyWindows(QWidget):
         Layout3 = QHBoxLayout(self)
         Label2 = QLabel()
         Label2.setObjectName('Label2')
-        Label2.setPixmap(QPixmap("../Server/Network/TestData/input/1.jpg"))
+        Label2.setPixmap(QPixmap("./introduction.jpg"))
+        Label2.setScaledContents(True)
+        Label2.setFixedSize(500, 350)
         Layout3.addWidget(Label2)
         Widget3.setLayout(Layout3)
 
@@ -404,18 +415,34 @@ class MyWindows(QWidget):
         ComboBox1 = QComboBox(self)
         ComboBox1.setObjectName("ComboBox1")
         ComboBox1.activated.connect(self.ShowFrame)
-
+        PSNRLabel = QLabel("PSNR:")
+        PSNRText = QLineEdit()
+        PSNRText.setText("0")
+        PSNRText.setObjectName("PSNRText")
+        SSIMLabel = QLabel("SSIM:")
+        SSIMText = QLineEdit()
+        SSIMText.setText("0")
+        SSIMText.setObjectName("SSIMText")
         Layout4.addWidget(ComboBox1)
+        Layout4.addWidget(PSNRLabel)
+        Layout4.addWidget(PSNRText)
+        Layout4.addWidget(SSIMLabel)
+        Layout4.addWidget(SSIMText)
+
         Widget4.setLayout(Layout4)
 
 
         Widget5 = QWidget()
         Layout5 = QHBoxLayout(self)
         Label3 = QLabel()
-        Label3.setPixmap(QPixmap("../Server/Network/TestData/input/1.jpg"))
+        Label3.setPixmap(QPixmap("./introduction.jpg"))
+        Label3.setScaledContents(True)
+        Label3.setFixedSize(500, 350)
         Label3.setObjectName("Label3")
         Label4 = QLabel()
-        Label4.setPixmap(QPixmap("../Server/Network/TestData/input/1.jpg"))
+        Label4.setPixmap(QPixmap("./introduction.jpg"))
+        Label4.setFixedSize(500, 350)
+        Label4.setScaledContents(True)
         Label4.setObjectName("Label4")
         Layout5.addWidget(Label3)
         Layout5.addWidget(Label4)

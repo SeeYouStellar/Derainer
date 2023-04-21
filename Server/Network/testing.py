@@ -87,10 +87,11 @@ if __name__ == '__main__':
       print('All done')
    sess.close()
 
-   # plt.subplot(1,2,1)
-   # plt.imshow(ori[0,:,:,:])
-   # plt.title('rainy')
-   # plt.subplot(1,2,2)
-   # plt.imshow(derained)
-   # plt.title('derained')
-   # plt.show()
+
+   plt.subplot(1,2,1)
+   plt.imshow(ori[0,:,:,:])
+   plt.title('rainy')
+   plt.subplot(1,2,2)
+   plt.imshow(derained)
+   plt.title('derained')
+   plt.show()
