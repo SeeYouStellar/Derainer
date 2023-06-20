@@ -22,18 +22,18 @@ tf.reset_default_graph()
 
 ##################### Network parameters ###################################
 num_feature = 16  # number of feature maps
-num_channels = 3  # number of input's channels
+num_channels = 3  # number of input_animal's channels
 patch_size = 64  # patch size
 KernelSize = 3  # kernel size
 learning_rate = 0.1  # learning rate
-iterations = int(1.0 * 1e4)  # iterations
+iterations = int(2.0 * 1e5)  # iterations
 batch_size = 20  # batch size
 save_model_path = "./model/"  # saved model's path
 model_name = 'model-epoch'  # saved model's name
 ############################################################################
 
 
-# input_path = "C:/Users/lisherry/Desktop/Server/Network/TrainData/input/"  # the path of rainy images
+# input_path = "C:/Users/lisherry/Desktop/Server/Network/TrainData/input_animal/"  # the path of rainy images
 # gt_path = "C:/Users/lisherry/Desktop/Server/Network/TrainData/label/"  # the path of ground truth
 input_path = './TrainData/input/'
 gt_path = './TrainData/label/'
@@ -164,7 +164,7 @@ if __name__ == '__main__':
             print("Check patch pair:")
             plt.subplot(1, 2, 1)
             plt.imshow(check_data[0, :, :, :])
-            plt.title('input')
+            plt.title('input_animal')
             plt.subplot(1, 2, 2)
             plt.imshow(check_label[0, :, :, :])
             plt.title('ground truth')
@@ -185,7 +185,7 @@ if __name__ == '__main__':
                     print('%d / %d iteraions, learning rate = %.3f, Training Loss = %.4f, runtime = %.1f s'
                           % (j + 1, iterations, lr_, Training_Loss, (end - start)))
                     save_path_full = os.path.join(save_model_path, model_name)  # save model
-                    saver.save(sess, save_path_full, global_step=j + 1, write_meta_graph=False)
+                    saver.save(sess, save_path_full, global_step=j + 1, write_meta_graph=True)
                     start = time.time()
 
             print('Training is finished.')

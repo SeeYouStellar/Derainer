@@ -6,11 +6,17 @@
 import os.path
 import sys
 import time
-
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5 import Qt
+from PyQt5 import QtCore
+from PyQt5.QtGui import QPixmap, QImage, QFont
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QHBoxLayout, QSizePolicy, QVBoxLayout, QLabel, \
-    QTextEdit, QComboBox, QStatusBar, QMainWindow, QDesktopWidget, QLineEdit
+    QTextEdit, QComboBox, QStatusBar, QMainWindow, QDesktopWidget, QLineEdit, QMessageBox
+
+from qt_material import apply_stylesheet
+import qtmodern.styles
+import qtmodern.windows
+
 import cv2
 import zmq
 import base64
@@ -38,8 +44,11 @@ class ListenThread(QThread):
     def run(self):
         print("thread1 is start\n")
         context = zmq.Context()
+        # print("1")
         socket_listen = context.socket(zmq.PAIR)
+        # print("1")
         socket_listen.bind('tcp://*:5555')
+        # print("1")
         print("bind socket 5555 build\n")
         while True:
             frame = socket_listen.recv()
@@ -58,8 +67,8 @@ class SendThread(QThread):
 
     def run(self):
         print("thread2 is start\n")
-        # IP = '172.20.10.5'
-        IP = '172.23.80.1'
+        # IP = '172.20.10.8'
+        IP = '172.20.10.8'
         contest = zmq.Context()
         socket_send = contest.socket(zmq.PAIR)
         socket_send.connect('tcp://%s:5556' % IP)
@@ -88,10 +97,9 @@ class SendThread(QThread):
             mutex_flag.release()
             msg = socket_send.recv_string()
 
-
 class CleanThread(QThread):
     signal = pyqtSignal(object)
-
+    signal2 = pyqtSignal(object)
     def __int__(self):
         super(CleanThread, self).__int__()
 
@@ -112,6 +120,8 @@ class CleanThread(QThread):
         num = 0
         mutex_num.release()
         self.signal.emit(0)
+        self.signal2.emit(0)
+
 
 class ListenUnDerainThread(QThread):
     # trigger = pyqtSignal(object)
@@ -167,36 +177,36 @@ class ListenDerainThread(QThread):
             print("save a derain photo\n")
             time.sleep(1)
 
-class JudgeThread(QThread):
-    beginderain = pyqtSignal(object)
-    endderain1 = pyqtSignal(object)
-    endderain2 = pyqtSignal(object)
-
-    def __int__(self):
-        super(JudgeThread, self).__int__()
-
-    def run(self):
-        num_derain = -1
-        while True:
-            mutex_flag.acquire()
-            global flag
-            if flag == 4:
-                print("JudgeThread|flag:" + str(flag) + "\n")
-                mutex_num.acquire()
-                global num
-                if num == len(os.listdir("UnDerainImg")):
-                    self.beginderain.emit("待去雨帧收集完毕，开始去雨")
-                    print("JudgeThread|num:" + str(num) + "\n")
-                    num_derain = num
-                    num = 0
-                mutex_num.release()
-            mutex_flag.release()
-            print("JudgeThread|num_derain:" + str(num_derain) + "\n")
-            if num_derain == len(os.listdir("DerainedImg")):
-                self.endderain1.emit("去雨帧收集完毕，去雨完成")
-                self.endderain2.emit(0)
-                num_derain = -1
-            time.sleep(5)
+# class JudgeThread(QThread):
+#     beginderain = pyqtSignal(object)
+#     endderain1 = pyqtSignal(object)
+#     endderain2 = pyqtSignal(object)
+#
+#     def __int__(self):
+#         super(JudgeThread, self).__int__()
+#
+#     def run(self):
+#         num_derain = -1
+#         while True:
+#             mutex_flag.acquire()
+#             global flag
+#             if flag == 4:
+#                 print("JudgeThread|flag:" + str(flag) + "\n")
+#                 mutex_num.acquire()
+#                 global num
+#                 if num == len(os.listdir("UnDerainImg")):
+#                     self.beginderain.emit("待去雨帧收集完毕，开始去雨")
+#                     print("JudgeThread|num:" + str(num) + "\n")
+#                     num_derain = num
+#                     num = 0
+#                 mutex_num.release()
+#             mutex_flag.release()
+#             print("JudgeThread|num_derain:" + str(num_derain) + "\n")
+#             if num_derain == len(os.listdir("DerainedImg")):
+#                 self.endderain1.emit("去雨帧收集完毕，去雨完成")
+#                 self.endderain2.emit(0)
+#                 num_derain = -1
+#             time.sleep(5)
 
 class MyWindows(QWidget):
 
@@ -240,7 +250,7 @@ class MyWindows(QWidget):
         Label2 = self.findChild(QLabel, 'Label2')
         len_x = frame.shape[1]  # 获取图像大小
         wid_y = frame.shape[0]
-        frame = QImage(frame.data, len_x, wid_y, len_x * 3, QImage.Format_RGB888)  # 此处如果不加len_x*3，就会发生倾斜
+        frame = QImage(frame.data, len_x, wid_y, len_x * 3, QImage.Format_RGB888)
         pix = QPixmap.fromImage(frame)
         Label2.setPixmap(pix)  # 在label上显示图片
         Label2.setScaledContents(True)  # 让图片自适应label大小
@@ -269,7 +279,7 @@ class MyWindows(QWidget):
         print('-----DeRain-----')
 
         self.work5.start()  # 开始接受 derain img
-        self.work6.start()
+        # self.work6.start()
         mutex_flag.acquire()
         global flag
         flag = 4
@@ -292,6 +302,13 @@ class MyWindows(QWidget):
         Text1Value = int(Text1.text())
         Text1.setText(str(num_))
 
+    def SaveToLocal(self):
+        ComboBox = self.findChild(QComboBox, 'ComboBox1')
+        filename = ComboBox.currentText()
+        os.system("copy \"DerainedImg\\" + filename + "\" \"SaveDerainImg\"")
+        os.system("copy \"UnDerainImg\\" + filename + "\" \"SaveUnderainImg\"")
+        QMessageBox.about(self, "温馨提示", "图像对"+filename+"已保存至目录SaveDerainImg和SaveUnderainImg")
+
     def Center(self):
         # 获得屏幕坐标系
         screen = QDesktopWidget().screenGeometry()
@@ -309,42 +326,69 @@ class MyWindows(QWidget):
         DerainedImgs = os.listdir("DerainedImg")
         if len(UnDerainImgs) != len(DerainedImgs):
             print("warning|len(UnDerainImgs) != len(DerainedImgs)\n")
-        for i, val in enumerate(UnDerainImgs):
-            for j, val_ in enumerate(DerainedImgs):
-                if val == val_:
-                    break
-            if j < len(DerainedImgs):
-                timelog = val[:-4]
-                ComboBox1.addItem(timelog+".jpg")
+            QMessageBox.critical(self, "错误提示", "图像对不匹配")
+            StatusBar = self.findChild(QStatusBar, 'StatusBar')
+            StatusBar.showMessage("图像对不匹配，显示失败|请清空本地图像对")
+            self.work3.start()
+            mutex_flag.acquire()
+            global flag
+            flag = 5
+            mutex_flag.release()
+        else:
+            for i, val in enumerate(UnDerainImgs):
+                for j, val_ in enumerate(DerainedImgs):
+                    if val == val_:
+                        break
+                if j < len(DerainedImgs):
+                    timelog = val[:-4]
+                    ComboBox1.addItem(timelog+".jpg")
 
     def ShowFrame(self):
-        Label3 = self.findChild(QLabel, "Label3")
-        Label4 = self.findChild(QLabel, "Label4")
         UnDerainImgs = os.listdir("UnDerainImg")
         DerainedImgs = os.listdir("DerainedImg")
+        if len(UnDerainImgs) != len(DerainedImgs) or len(UnDerainImgs) == 0:
+            return
+        else:
+            Label3 = self.findChild(QLabel, "Label3")
+            Label4 = self.findChild(QLabel, "Label4")
+            UnDerainImgs = os.listdir("UnDerainImg")
+            DerainedImgs = os.listdir("DerainedImg")
+            ComboBox1 = self.findChild(QComboBox, "ComboBox1")
+            Index = ComboBox1.currentIndex()
+            text = ComboBox1.itemText(Index)
+            Label3.setPixmap(QPixmap("UnDerainImg/"+text))
+            Label4.setPixmap(QPixmap("DerainedImg/"+text))
+            img1 = cv2.imread("UnDerainImg/"+text)
+            img2 = cv2.imread("DerainedImg/"+text)
+            psnr = compare_psnr(img1, img2)
+            PSNRText = self.findChild(QLineEdit, "PSNRText")
+            PSNRText.setText(str(psnr))
+            ssim = compare_ssim(img1, img2, multichannel=True)
+            SSIMText = self.findChild(QLineEdit, "SSIMText")
+            SSIMText.setText(str(ssim))
+
+    def cleanLabel(self):
         ComboBox1 = self.findChild(QComboBox, "ComboBox1")
-        Index = ComboBox1.currentIndex()
-        text = ComboBox1.itemText(Index)
-        Label3.setPixmap(QPixmap("UnDerainImg/"+text))
-        Label4.setPixmap(QPixmap("DerainedImg/"+text))
-        img1 = cv2.imread("UnDerainImg/"+text)
-        img2 = cv2.imread("DerainedImg/"+text)
-        psnr = compare_psnr(img1, img2)
+        ComboBox1.clear()
+        Label3 = self.findChild(QLabel, "Label3")
+        Label4 = self.findChild(QLabel, "Label4")
+        Label3.setPixmap(QPixmap("./introduction.jpg"))
+        Label4.setPixmap(QPixmap("./introduction.jpg"))
         PSNRText = self.findChild(QLineEdit, "PSNRText")
-        PSNRText.setText(str(psnr))
-        ssim = compare_ssim(img1, img2, multichannel=True)
         SSIMText = self.findChild(QLineEdit, "SSIMText")
-        SSIMText.setText(str(ssim))
+        PSNRText.setText("0")
+        SSIMText.setText("0")
+
 
     def Win(self):
         # self.Center()
-
+        # self.setWindowFlags(Qt.Qt.CustomizeWindowHint)
         self.work1 = ListenThread()
         self.work2 = SendThread()
         self.work3 = CleanThread()
         self.work4 = ListenUnDerainThread()
         self.work5 = ListenDerainThread()
-        self.work6 = JudgeThread()
+        # self.work6 = JudgeThread()
 
         LayoutWin = QHBoxLayout(self)
         WidgetWin = QWidget()
@@ -377,7 +421,7 @@ class MyWindows(QWidget):
         Text1.setObjectName("Text1")
         Text1.setText("0")
         Button3 = QPushButton('去雨', self)
-        Button4 = QPushButton('清空', self)
+        Button4 = QPushButton('缓存清空', self)
         Layout2.addWidget(Label1)
         Layout2.addWidget(Text1)
         Layout2.addWidget(Button3)
@@ -385,7 +429,7 @@ class MyWindows(QWidget):
         Widget2.setLayout(Layout2)
 
         self.work3.signal.connect(self.SetFrameNum)
-
+        self.work3.signal2.connect(self.cleanLabel)
         Button3.clicked.connect(self.DeRain)
         Button4.clicked.connect(self.Clean)
 
@@ -398,7 +442,7 @@ class MyWindows(QWidget):
         Label2.setFixedSize(500, 350)
         Layout3.addWidget(Label2)
         Widget3.setLayout(Layout3)
-
+        # Widget3.setStyleSheet("border: 1px solid black;")
         self.work1.trigger.connect(self.ShowPerFrame)
 
 
@@ -406,29 +450,37 @@ class MyWindows(QWidget):
         Layout123.addWidget(Widget2)
         Layout123.addWidget(Widget3)
         Widget123.setLayout(Layout123)
-
+        # Widget123.setStyleSheet("border: 1px solid black;")
         Widget45 = QWidget()
         Layout45 = QVBoxLayout(self)
 
         Widget4 = QWidget()
         Layout4 = QHBoxLayout(self)
+        ShowButton = QPushButton('结果展示', self)
+        ShowButton.clicked.connect(self.AddComboBoxItem)
+        ShowButton.clicked.connect(self.ShowFrame)
         ComboBox1 = QComboBox(self)
         ComboBox1.setObjectName("ComboBox1")
         ComboBox1.activated.connect(self.ShowFrame)
         PSNRLabel = QLabel("PSNR:")
         PSNRText = QLineEdit()
+        PSNRText.setObjectName("PSNRText")
         PSNRText.setText("0")
         PSNRText.setObjectName("PSNRText")
         SSIMLabel = QLabel("SSIM:")
         SSIMText = QLineEdit()
+        SSIMText.setObjectName("SSIMText")
         SSIMText.setText("0")
         SSIMText.setObjectName("SSIMText")
+        SaveButton = QPushButton('保存至本地', self)
+        SaveButton.clicked.connect(self.SaveToLocal)
+        Layout4.addWidget(ShowButton)
         Layout4.addWidget(ComboBox1)
         Layout4.addWidget(PSNRLabel)
         Layout4.addWidget(PSNRText)
         Layout4.addWidget(SSIMLabel)
         Layout4.addWidget(SSIMText)
-
+        Layout4.addWidget(SaveButton)
         Widget4.setLayout(Layout4)
 
 
@@ -448,9 +500,14 @@ class MyWindows(QWidget):
         Layout5.addWidget(Label4)
         Widget5.setLayout(Layout5)
 
+
+
+
+
         Layout45.addWidget(Widget4)
         Layout45.addWidget(Widget5)
         Widget45.setLayout(Layout45)
+        # Widget45.setStyleSheet("border: 1px solid black;")
 
         LayoutWin.addWidget(Widget123)
         LayoutWin.addWidget(Widget45)
@@ -460,9 +517,25 @@ class MyWindows(QWidget):
         statusBar = QStatusBar()
         statusBar.setObjectName("StatusBar")
 
+        # title
+
+        title = QLabel("基于树莓派的图像去雨系统")
+        font = QFont()
+        font.setFamily('微软雅黑')
+        font.setBold(True)
+        font.setPointSize(23)
+        title.setFont(font)
+        # title.setStyleSheet("color:#1de9b6;")
+        title.setAlignment(QtCore.Qt.AlignCenter)
+
+
+
         LayoutWin_StatusBar = QVBoxLayout(self)
+        LayoutWin_StatusBar.addWidget(title)
         LayoutWin_StatusBar.addWidget(WidgetWin)
         LayoutWin_StatusBar.addWidget(statusBar)
+
+
         self.setLayout(LayoutWin_StatusBar)
 
         self.work1.started.connect(lambda : self.StatusBarChange(self.StatusMsgs[2]))
@@ -470,15 +543,18 @@ class MyWindows(QWidget):
         self.work3.started.connect(lambda : self.StatusBarChange(self.StatusMsgs[0]))
         self.work3.finished.connect(lambda : self.StatusBarChange(self.StatusMsgs[1]))
 
-        self.work6.beginderain.connect(self.StatusBarChange)
-
-        self.work6.endderain1.connect(self.StatusBarChange)
-        self.work6.endderain2.connect(self.SetFrameNum)
-        self.work6.endderain1.connect(self.AddComboBoxItem)
-
+        # self.work6.beginderain.connect(self.StatusBarChange)
+        #
+        # self.work6.endderain1.connect(self.StatusBarChange)
+        # self.work6.endderain2.connect(self.SetFrameNum)
+        # self.work6.endderain1.connect(self.AddComboBoxItem)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     w = MyWindows()
-    w.show()
+    # apply_stylesheet(app, theme='dark_teal.xml')
+    # w.show()
+    qtmodern.styles.dark(app)
+    mw = qtmodern.windows.ModernWindow(w)
+    mw.show()
     sys.exit(app.exec_())

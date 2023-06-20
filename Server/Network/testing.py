@@ -17,18 +17,17 @@ import matplotlib.pyplot as plt
 
 
 
-
 os.environ['CUDA_VISIBLE_DEVICES'] = "0"  # select GPU device
 
 tf.reset_default_graph()
 
 model_path = './model/'
+# pre_trained_model_path = './model/trained/model'
 pre_trained_model_path = './model/trained/model'
 
-
-img_path = './TestData/input/' # the path of testing images
+img_path = './TestData/input/'  # the path of testing images
 # img_path = "../UnDerainImg"
-results_path = './TestData/results/' # the path of de-rained images
+results_path = './TestData/results/'  # the path of de-rained images
 # results_path = "../DerainedImg"
 
 def _parse_function(filename):
@@ -58,6 +57,9 @@ if __name__ == '__main__':
 
 
    output = Network.inference(rain, is_training = False)
+   for node in tf.get_default_graph().as_graph_def().node:
+       print(node.name)
+
    output = tf.clip_by_value(output, 0., 1.)
    output = output[0,:,:,:]
 
@@ -67,6 +69,7 @@ if __name__ == '__main__':
 
 
    with tf.Session(config=config) as sess:
+      # summary_writer = tf.summary.FileWriter('./log/', sess.graph)
       with tf.device('/gpu:0'):
           if tf.train.get_checkpoint_state(model_path):
               ckpt = tf.train.latest_checkpoint(model_path)  # try your own model
@@ -75,6 +78,7 @@ if __name__ == '__main__':
           else:
              saver.restore(sess, pre_trained_model_path) # try a pre-trained model
              print ("Loading pre-trained model")
+             print("done")
 
           for i in range(num_img):
              derained, ori = sess.run([output, rain])
@@ -87,11 +91,11 @@ if __name__ == '__main__':
       print('All done')
    sess.close()
 
-
-   plt.subplot(1,2,1)
-   plt.imshow(ori[0,:,:,:])
-   plt.title('rainy')
-   plt.subplot(1,2,2)
-   plt.imshow(derained)
-   plt.title('derained')
-   plt.show()
+   #
+   # plt.subplot(1,2,1)
+   # plt.imshow(ori[0,:,:,:])
+   # plt.title('rainy')
+   # plt.subplot(1,2,2)
+   # plt.imshow(derained)
+   # plt.title('derained')
+   # plt.show()
